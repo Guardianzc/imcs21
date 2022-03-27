@@ -13,11 +13,37 @@ from utils import load_data, Stats
 
 
 # 导入数据
-# data_path = 'dataset/raw/corpus.json'
-data_path = 'dataset/train.json'
+data_path = 'dataset/raw/corpus.json'
+# data_path = 'dataset/train.json'
 # data_path = 'dataset/test.json'
 data = load_data(data_path)
 
+
+from collections import defaultdict
+# 实体总数量
+entity_set = defaultdict(set)
+
+b_prefixs = ['B-Symptom', 'B-Medical_Examination', 'B-Drug', 'B-Drug_Category', 'B-Operation']
+i_prefixs = ['I-Symptom', 'I-Medical_Examination', 'I-Drug', 'I-Drug_Category', 'I-Operation']
+
+
+for _, value in data.items():
+    for item in value['dialogue']:
+        bio_labels = [_.strip() for _ in item['BIO_label'].split(' ')]
+        n = len(bio_labels)
+        for b_prefix, i_prefix in zip(b_prefixs, i_prefixs):
+            start_idx, end_idx = 0, 0
+            while start_idx < n and end_idx < n:
+                while start_idx < n and not bio_labels[start_idx].startswith(b_prefix):
+                    start_idx += 1
+                end_idx = start_idx + 1
+                while end_idx < n and bio_labels[end_idx].startswith(i_prefix):
+                    end_idx += 1
+                # 将标注的实体添加到集合中
+                entity_set[b_prefix].add(item['sentence'][start_idx: end_idx])
+                start_idx = end_idx
+
+a = {key: len(value) for key, value in entity_set.items()}
 
 aa = set()
 for key, val in data.items():
