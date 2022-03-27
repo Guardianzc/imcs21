@@ -7,27 +7,37 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer
 
-from utils import CustomDataset, BERTClass, load_json, write_json
+from utils import CustomDataset, load_json, write_json
+
+import argparse
 
 
-prefix = './data'
-prefix2 = '../../dataset'
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", default='exp', required=False, type=str)
+parser.add_argument("--cuda_num", default='1', required=False, type=str)
+args = parser.parse_args()
+
+
+prefix = 'sri_data'
 model_prefix = './saved'
 
 # define device
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:{}'.format(args.cuda_num) if torch.cuda.is_available() else 'cpu'
+print(device)
 
 # load normalized symptom
-id2sym = {key: value for key, value in pd.read_csv(os.path.join(prefix2, 'symptom_norm.csv'))['norm'].items()}
+id2sym = {key: value for key, value in pd.read_csv('../../../dataset/symptom_norm.csv')['norm'].items()}
 
 # load model
-best_epoch = 12
-model = torch.load(os.path.join(model_prefix, 'model_{}.pkl'.format(best_epoch)))
+best_epoch = 41
+model = torch.load(os.path.join(model_prefix, args.target, 'model_{}.pkl'.format(best_epoch)))
+model.to(device)
 
 # load test set
-test = load_json(os.path.join(prefix, 'processed', 'test_set.json'))
+test = load_json(os.path.join(prefix, 'test_set_{}.json'.format(args.target)))
+# test = load_json('sri_data/test_set.json')
 
-MAX_LEN = 256
+MAX_LEN = 128
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
 
 test_set = CustomDataset(test, tokenizer, MAX_LEN)
@@ -68,21 +78,29 @@ for i in range(len(test)):
     if test[i][2] not in sids:
         sids.append(test[i][2])
 
+
 final = {}
 start = 0
 end = 0
 
-# evaluate
-for i in range(len(sids)):
-    sid = sids[i]
-    while end < len(test) and test[end][2] == sid:
-        end += 1
-    _, labels = np.where(outputs[start: end])
-    pl = {}
-    for label in labels:
-        pl[id2sym[label // 3]] = str(int(label % 3))
-    final[str(sid)] = pl
-    start = end
+if args.target == 'exp':
+    for i in range(len(sids)):
+        sid = sids[i]
+        labels, = np.where(outputs[i])
+        pl = []
+        for label in labels:
+            pl.append(id2sym.get(label))
+        final[str(sid)] = pl
+else:
+    for i in range(len(sids)):
+        sid = sids[i]
+        while end < len(test) and test[end][2] == sid:
+            end += 1
+        _, labels = np.where(outputs[start: end])
+        pl = {}
+        for label in labels:
+            pl[id2sym[label // 3]] = str(int(label % 3))
+        final[str(sid)] = pl
+        start = end
 
-
-write_json(final, os.path.join(prefix, 'submission_track1_task2.json'))
+write_json(final, 'mlc_{}_pred.json'.format(args.target))

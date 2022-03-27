@@ -368,7 +368,7 @@ def predict(args, model, data_processor_test, vocab_dict):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', '-dd', type=str, default='data/near_data', help='Train/dev data path')
+    parser.add_argument('--data_dir', '-dd', type=str, default='./sri_data', help='Train/dev data path')
     parser.add_argument('--save_dir', '-sd', type=str, default='save_model', help='Path to save, load model')
     parser.add_argument('--test_input_file', '-tif', type=str, default='../../dataset/test.json',
                         help='Input file for prediction')

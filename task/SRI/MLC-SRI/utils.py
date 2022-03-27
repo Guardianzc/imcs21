@@ -36,11 +36,14 @@ class CustomDataset(Dataset):
 
 
 class BERTClass(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, num_labels: int, target: str):
         super(BERTClass, self).__init__()
         self.l1 = transformers.BertModel.from_pretrained('bert-base-chinese')
         self.l2 = torch.nn.Dropout(p=0.3)
-        self.l3 = torch.nn.Linear(768, 987)
+        if target == 'exp':
+            self.l3 = torch.nn.Linear(768, num_labels)
+        else:
+            self.l3 = torch.nn.Linear(768, num_labels * 3)
 
     def forward(self, ids, mask, token_type_ids):
         _, output_1 = self.l1(ids, attention_mask=mask, token_type_ids=token_type_ids, return_dict=False)

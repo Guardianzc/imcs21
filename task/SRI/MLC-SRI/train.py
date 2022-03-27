@@ -9,26 +9,41 @@ from tqdm import tqdm
 
 from utils import CustomDataset, BERTClass, load_json
 
+import argparse
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", default='exp', required=True, type=str)
+parser.add_argument("--cuda_num", default='1', required=True, type=str)
+args = parser.parse_args()
+
+
+device = 'cuda:{}'.format(args.cuda_num) if torch.cuda.is_available() else 'cpu'
+print(device)
 torch.manual_seed(12345)
 
+
 # load train/dev set
-prefix = './data'
-model_prefix = './saved'
+prefix = 'sri_data'
+model_prefix = './saved/{}'.format(args.target)
 
 os.makedirs(model_prefix, exist_ok=True)
 
-train = load_json(os.path.join(prefix, 'processed', 'train_set.json'))
-dev = load_json(os.path.join(prefix, 'processed', 'dev_set.json'))
+train = load_json(os.path.join(prefix, 'train_set_{}.json'.format(args.target)))
+dev = load_json(os.path.join(prefix, 'dev_set_{}.json'.format(args.target)))
+
+with open('../../../dataset/symptom_norm.csv', 'r') as f:
+    num_labels = len(f.readlines()) - 1
+
 
 # Defining some key variables that will be used later on in the training
-MAX_LEN = 256
+MAX_LEN = 128
 TRAIN_BATCH_SIZE = 32
 VALID_BATCH_SIZE = 64
-EPOCHS = 20
-LEARNING_RATE = 1e-05
+# EPOCHS = 500 if args.target == 'exp' else 50
+# LEARNING_RATE = 5e-04 if args.target == 'exp' else 1e-5
+EPOCHS = 50
+LEARNING_RATE = 1e-5
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
 
 train_set = CustomDataset(train, tokenizer, MAX_LEN)
@@ -53,7 +68,7 @@ sampler = WeightedRandomSampler(weights, num_samples=len(train), replacement=Tru
 train_loader = DataLoader(train_set, sampler=sampler, **train_params)
 dev_loader = DataLoader(dev_set, **dev_params)
 
-model = BERTClass()
+model = BERTClass(num_labels, args.target)
 model.to(device)
 
 optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
@@ -65,7 +80,7 @@ def loss_fn(outputs, targets):
 
 def train_epoch(_epoch):
     model.train()
-    for _, data in tqdm(enumerate(train_loader)):
+    for _, data in enumerate(train_loader):
         ids = data['ids'].to(device, dtype=torch.long)
         mask = data['mask'].to(device, dtype=torch.long)
         token_type_ids = data['token_type_ids'].to(device, dtype=torch.long)
@@ -73,8 +88,8 @@ def train_epoch(_epoch):
         outputs = model(ids, mask, token_type_ids)
         optimizer.zero_grad()
         loss = loss_fn(outputs, targets)
-        if _ % 100 == 0:
-            print(f'Epoch: {_epoch + 1}, Loss:  {loss.item()}')
+        # if _ % 10 == 0:
+        #     print(f'Epoch: {_epoch + 1}, Loss:  {loss.item()}')
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -102,6 +117,8 @@ def validate():
     print(f"F1 Score (Micro) = {f1_score_micro}")
     print(f"F1 Score (Macro) = {f1_score_macro}")
 
+
+print('total steps: {}'.format(len(train_loader) * EPOCHS))
 
 for epoch in range(EPOCHS):
     train_epoch(epoch)

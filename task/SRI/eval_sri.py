@@ -1,50 +1,63 @@
 import json
-import sys
+import numpy as np
+import pandas as pd
+import os
+from sklearn.metrics import accuracy_score, hamming_loss, precision_score, recall_score, f1_score
+
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", required=True, type=str)
+parser.add_argument("--gold", required=True, type=str)
+parser.add_argument("--pred", required=True, type=str)
+args = parser.parse_args()
+
+
+# load normalized symptom
+prefix = '../../dataset'
+sym2id = {value: key for key, value in pd.read_csv(os.path.join(prefix, 'symptom_norm.csv'))['norm'].items()}
+num_labels = len(sym2id)
 
 
 def load_json(path: str):
-    """读取json文件"""
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     return data
 
 
-def cal_f1_score(preds, golds):
-    """样本级别的症状识别评价方式"""
-    assert len(preds) == len(golds)
-    p_sum = 0
-    r_sum = 0
-    hits = 0
-    for pred, gold in zip(preds, golds):
-        p_sum += len(pred)
-        r_sum += len(gold)
-        for k, v in pred.items():
-            if k in gold and v == gold[k]:
-                hits += 1
-    p = hits / p_sum if p_sum > 0 else 0
-    r = hits / r_sum if r_sum > 0 else 0
-    f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
-    return p, r, f1
+def make_label(symptoms, target):
+    if target == 'exp':
+        label = [0] * num_labels
+        for sx in symptoms:
+            if sym2id.get(sx) is not None:
+                label[sym2id.get(sx)] = 1
+    else:
+        label = [0] * (num_labels * 3)
+        for sx_norm, sx_type in symptoms.items():
+            if sym2id.get(sx_norm) is not None:
+                label[sym2id.get(sx_norm) * 3 + int(sx_type)] = 1
+    return label
 
 
-def eval(gold_data, pred_data):
-    """评估F1值"""
-    assert len(gold_data) == len(pred_data)
-    golds = []
-    preds = []
-    eids = list(gold_data.keys())
-    for eid in eids:
-        gold_type = gold_data[eid]['implicit_info']['Symptom']
-        pred_type = pred_data[eid]
-        golds.append(gold_type)
-        preds.append(pred_type)
-    assert len(golds) == len(preds)
-    _, _, f1 = cal_f1_score(preds, golds)
-    print('Test F1 score {}%'.format(round(f1 * 100, 4)))
+# gold_data = load_json('dataset/test.json')
+# pred_data = load_json('task/SRI/MTL-SRI/mtl_imp_pred.json')
+gold_data = load_json(args.gold)
+pred_data = load_json(args.pred)
+golds, preds = [], []
 
+for pid, sample in gold_data.items():
+    gold = sample['implicit_info']['Symptom']
+    pred = pred_data.get(pid)
+    golds.append(make_label(gold, args.target))
+    preds.append(make_label(pred, args.target))
 
-if __name__ == "__main__":
-    gold_data = load_json(sys.argv[1])  # 读入test的真实数据
-    pred_data = load_json(sys.argv[2])  # 读入test的预测数据
+golds, preds = np.array(golds), np.array(preds)
 
-    eval(gold_data, pred_data)
+print('Exact Match Ratio: {}'.format(accuracy_score(golds, preds, normalize=True, sample_weight=None)))
+print('Hamming loss: {}'.format(hamming_loss(golds, preds)))
+print('Recall: {}'.format(precision_score(y_true=golds, y_pred=preds, average='samples', zero_division=0)))
+print('Precision: {}'.format(recall_score(y_true=golds, y_pred=preds, average='samples', zero_division=0)))
+print('F1 Measure samples: {}'.format(f1_score(y_true=golds, y_pred=preds, average='samples', zero_division=0)))
+print('F1 Measure micro: {}'.format(f1_score(y_true=golds, y_pred=preds, average='micro', zero_division=0)))  # ours
+print('F1 Measure macro: {}'.format(f1_score(y_true=golds, y_pred=preds, average='macro', zero_division=0)))
