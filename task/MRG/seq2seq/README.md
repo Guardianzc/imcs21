@@ -4,19 +4,25 @@ This repo contains the code of **seq2seq, pointer-generator** for the solution o
 
 ### Requirement
 
-- python3.6
+- python 3.6
 - cuda10.0
 - torch==1.2.0
 - tensorflow==1.13.1
 - pandas==0.25.1
 - sumeval==0.2.2
 
+```shell
+conda install -c intel mkl_fft==1.0.14
+conda install -c intel mkl-random==1.0.2
+conda install -c intel mkl-service==2.3.0
+pip install -r requirements.txt
+```
+
 ### Preprocess
 
 ```shell
-python make_datafiles.py 
+python make_datafiles.py
 ```
-
 
 ### Seq2Seq
 
@@ -31,8 +37,6 @@ python train.py --use_gpu --exp_name=s2s
 ```shell
 python decode.py --model_filename=<model_dir> --decode_filename=medi_finished_dir/dev.bin --mode=dev --compute_rouge  --output_filenames=medi_finished_dir/file_names_dev
 ```
-
-<model_dir> 中填写模型的地址
 
 #### Testing
 

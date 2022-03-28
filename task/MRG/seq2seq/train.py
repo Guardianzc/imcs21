@@ -12,11 +12,9 @@ from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import Adagrad
 
-
 from data_util.batcher import Batcher
 from data_util.data import Vocab
 from data_util.utils import calc_running_avg_loss
-
 
 current_dir = os.getcwd()
 
@@ -26,17 +24,15 @@ decode_data_path = os.path.join(current_dir, "medi_finished_dir/test.bin")
 vocab_path = os.path.join(current_dir, "medi_finished_dir/vocab")
 
 
-
-
 class Train(object):
-    def __init__(self,args):
+    def __init__(self, args):
         self.vocab = Vocab(vocab_path, args.vocab_size)
         self.batcher = Batcher(args, train_data_path, self.vocab, mode='train',
                                batch_size=args.batch_size, single_pass=False)
         time.sleep(15)
 
         self.args = args
-        train_dir = os.path.join(args.log_root, 'train_'+args.exp_name)  #%d' % (int(time.time())))
+        train_dir = os.path.join(args.log_root, 'train_' + args.exp_name)  # %d' % (int(time.time())))
         if not os.path.exists(args.log_root):
             os.mkdir(args.log_root)
         if not os.path.exists(train_dir):
@@ -62,7 +58,7 @@ class Train(object):
         torch.save(state, model_save_path)
 
     def setup_train(self, model_file_path=None):
-        self.model = Model(self.args,model_file_path)
+        self.model = Model(self.args, model_file_path)
 
         params = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters()) + \
                  list(self.model.reduce_state.parameters())
@@ -72,7 +68,7 @@ class Train(object):
         start_iter, start_loss = 0, 0
 
         if model_file_path is not None:
-            state = torch.load(model_file_path, map_location= lambda storage, location: storage)
+            state = torch.load(model_file_path, map_location=lambda storage, location: storage)
             start_iter = state['iter']
             start_loss = state['current_loss']
 
@@ -101,10 +97,13 @@ class Train(object):
         step_losses = []
         for di in range(min(max_dec_len, args.max_dec_steps)):
             y_t_1 = dec_batch[:, di]  # Teacher forcing
-            final_dist, s_t_1,  c_t_1, attn_dist, p_gen, next_coverage = self.model.decoder(y_t_1, s_t_1,
-                                                        encoder_outputs, encoder_feature, enc_padding_mask, c_t_1,
-                                                        extra_zeros, enc_batch_extend_vocab,
-                                                                           coverage, di)
+            final_dist, s_t_1, c_t_1, attn_dist, p_gen, next_coverage = self.model.decoder(y_t_1, s_t_1,
+                                                                                           encoder_outputs,
+                                                                                           encoder_feature,
+                                                                                           enc_padding_mask, c_t_1,
+                                                                                           extra_zeros,
+                                                                                           enc_batch_extend_vocab,
+                                                                                           coverage, di)
             target = target_batch[:, di]
             gold_probs = torch.gather(final_dist, 1, target.unsqueeze(1)).squeeze()
             step_loss = -torch.log(gold_probs + args.eps)
@@ -112,13 +111,13 @@ class Train(object):
                 step_coverage_loss = torch.sum(torch.min(attn_dist, coverage), 1)
                 step_loss = step_loss + args.cov_loss_wt * step_coverage_loss
                 coverage = next_coverage
-                
+
             step_mask = dec_padding_mask[:, di]
             step_loss = step_loss * step_mask
             step_losses.append(step_loss)
 
         sum_losses = torch.sum(torch.stack(step_losses, 1), 1)
-        batch_avg_loss = sum_losses/dec_lens_var
+        batch_avg_loss = sum_losses / dec_lens_var
         loss = torch.mean(batch_avg_loss)
 
         loss.backward()
@@ -153,9 +152,8 @@ class Train(object):
                 tmp_min_loss = loss
                 print('模型已保存')
                 self.save_model(running_avg_loss, iter)
-    
 
-    def get_input_from_batch(self,batch, use_cuda):
+    def get_input_from_batch(self, batch, use_cuda):
         '''获取一个batch的输入'''
         batch_size = len(batch.enc_lens)
 
@@ -191,7 +189,7 @@ class Train(object):
 
         return enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, c_t_1, coverage
 
-    def get_output_from_batch(self,batch, use_cuda):
+    def get_output_from_batch(self, batch, use_cuda):
         '''获取一个batch的输出'''
         dec_batch = Variable(torch.from_numpy(batch.dec_batch).long())
         dec_padding_mask = Variable(torch.from_numpy(batch.dec_padding_mask)).float()
@@ -211,65 +209,59 @@ class Train(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train")
-    parser.add_argument("-m",  dest="model_file_path", required=False,  default=None, 
+    parser.add_argument("-m", dest="model_file_path", required=False, default=None,
                         help="Model file for retraining (default: None).")
-    parser.add_argument("--hidden_dim", default=256, type=int ,
+    parser.add_argument("--hidden_dim", default=256, type=int,
                         help="隐藏层向量维度")
-    parser.add_argument("--emb_dim", default=128, type=int ,
+    parser.add_argument("--emb_dim", default=128, type=int,
                         help="嵌入向量维度")
-    parser.add_argument("--batch_size", default=8, type=int ,
+    parser.add_argument("--batch_size", default=8, type=int,
                         help="训练时每个batch的大小")
-    parser.add_argument("--max_enc_steps", default=1024, type=int ,
+    parser.add_argument("--max_enc_steps", default=1024, type=int,
                         help="输入对话文本的最大长度，超过该程度进行截断")
-    parser.add_argument("--max_dec_steps", default=200, type=int ,
+    parser.add_argument("--max_dec_steps", default=200, type=int,
                         help="输出诊疗报告的最大长度")
-    parser.add_argument("--min_dec_steps", default=50, type=int ,
+    parser.add_argument("--min_dec_steps", default=50, type=int,
                         help="输出诊疗报告的最小长度")
-    parser.add_argument("--beam_size", default=4, type=int ,
+    parser.add_argument("--beam_size", default=4, type=int,
                         help="beam search的大小")
-    parser.add_argument("--vocab_size", default=3000, type=int ,
+    parser.add_argument("--vocab_size", default=3000, type=int,
                         help="词典大小")
-    
-    parser.add_argument("--lr", default=0.15, type=float ,
+
+    parser.add_argument("--lr", default=0.15, type=float,
                         help="学习率")
-    parser.add_argument("--adagrad_init_acc", default=0.1, type=float ,
+    parser.add_argument("--adagrad_init_acc", default=0.1, type=float,
                         help="Adagrad的初始累加器值")
-    parser.add_argument("--rand_unif_init_mag", default=0.02, type=float ,
+    parser.add_argument("--rand_unif_init_mag", default=0.02, type=float,
                         help="lstm单元随机均匀初始化的幅度")
-    parser.add_argument("--trunc_norm_init_std", default=1e-4, type=float ,
+    parser.add_argument("--trunc_norm_init_std", default=1e-4, type=float,
                         help="张量初始化标准差")
-    parser.add_argument("--max_grad_norm", default=2.0, type=float ,
-                        help="梯度的最大范数")       
+    parser.add_argument("--max_grad_norm", default=2.0, type=float,
+                        help="梯度的最大范数")
 
-    parser.add_argument("--eps", default=1e-12, type=float ,
-                        help="epsilon")     
+    parser.add_argument("--eps", default=1e-12, type=float,
+                        help="epsilon")
 
-    parser.add_argument("--pointer_gen", action="store_true",default=False,
-                        help="是否使用指针生成器，默认为否")   
-    parser.add_argument("--is_coverage", action="store_true",default=False,
-                        help="是否使用汇聚机制，默认为否")   
-    parser.add_argument("--cov_loss_wt", default=1.0, type=float ,
-                        help="汇聚机制对应的损失权重")  
-    parser.add_argument("--lr_coverage", default=0.15, type=float ,
-                        help="汇聚机制下，进行训练的学习率")  
-    parser.add_argument("--max_iterations", default=10000, type=int ,
-                        help="训练过程中，最大的迭代次数")                                             
-    parser.add_argument("--use_gpu", action="store_true",default=False,
-                        help="是否使用gpu，默认为否")  
+    parser.add_argument("--pointer_gen", action="store_true", default=False,
+                        help="是否使用指针生成器，默认为否")
+    parser.add_argument("--is_coverage", action="store_true", default=False,
+                        help="是否使用汇聚机制，默认为否")
+    parser.add_argument("--cov_loss_wt", default=1.0, type=float,
+                        help="汇聚机制对应的损失权重")
+    parser.add_argument("--lr_coverage", default=0.15, type=float,
+                        help="汇聚机制下，进行训练的学习率")
+    parser.add_argument("--max_iterations", default=10000, type=int,
+                        help="训练过程中，最大的迭代次数")
+    parser.add_argument("--use_gpu", action="store_true", default=False,
+                        help="是否使用gpu，默认为否")
     parser.add_argument("--log_root", default=os.path.join(current_dir, "log/"), type=str,
-                        help="log的位置")  
+                        help="log的位置")
     parser.add_argument("--exp_name", default="exp_1", type=str,
-                        help="实验名称")  
-                        
+                        help="实验名称")
 
     args = parser.parse_args()
-    
+
     use_cuda = args.use_gpu and torch.cuda.is_available()
     train_processor = Train(args)
     print('--------开始训练-------')
     train_processor.trainIters(args.max_iterations, args.model_file_path)
-
-
-
-
-

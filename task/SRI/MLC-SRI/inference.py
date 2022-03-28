@@ -13,8 +13,9 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--target", default='exp', required=False, type=str)
-parser.add_argument("--cuda_num", default='1', required=False, type=str)
+parser.add_argument("--target", default='exp', required=True, type=str)
+parser.add_argument("--cuda_num", default='1', required=True, type=str)
+parser.add_argument("--epoch", required=True, type=int)
 args = parser.parse_args()
 
 
@@ -29,7 +30,7 @@ print(device)
 id2sym = {key: value for key, value in pd.read_csv('../../../dataset/symptom_norm.csv')['norm'].items()}
 
 # load model
-best_epoch = 41
+best_epoch = args.epoch
 model = torch.load(os.path.join(model_prefix, args.target, 'model_{}.pkl'.format(best_epoch)))
 model.to(device)
 

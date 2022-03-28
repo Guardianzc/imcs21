@@ -1,0 +1,18 @@
+# build_vocab.yaml
+
+## Where the samples will be written
+save_data: data/run/example
+## Where the vocab(s) will be written
+src_vocab: data/run/example.vocab.src
+tgt_vocab: data/run/example.vocab.tgt
+
+# Corpus opts:
+data:
+    corpus_1:
+        path_src: data/src-train.txt
+        path_tgt: data/tgt-train.txt
+    valid:
+        path_src: data/src-dev.txt
+        path_tgt: data/tgt-dev.txt
+
+

@@ -1,0 +1,25 @@
+#data: data/run/example
+
+data:
+    corpus_1:
+        path_src: data/src-train.txt
+        path_tgt: data/tgt-train.txt
+    valid:
+        path_src: data/src-dev.txt
+        path_tgt: data/tgt-dev.txt
+
+
+# Vocabulary files that were just created
+src_vocab: data/run/example.vocab.src
+tgt_vocab: data/run/example.vocab.tgt
+
+# Train on a single GPU
+world_size: 1
+gpu_ranks: [0]
+
+# Where to save the checkpoints
+save_model: data/run/model
+save_checkpoint_steps: 500
+train_steps: 1000
+valid_steps: 500
+
